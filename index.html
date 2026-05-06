@@ -10,8 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 :root{
-  --bg:#EEE8DC; --bg2:#E8E1D4; --bg3:#E2DACC;
-  --panel:rgba(250,247,242,0.92); --ink:#0D1520; --navy:#1A2B3C;
+  --bg:#EDECE8; --bg2:#E6E4DF; --bg3:#DEDAD3;
+  --panel:rgba(248,246,242,0.95); --ink:#0D1520; --navy:#1A2B3C;
   --teal:#006E63; --teal2:#00A896;
   --gold:#B8832A; --gold2:#D4A843;
   --muted:#5A6A7A; --dim:#8A9BAA;
@@ -21,281 +21,321 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;font-weight:300;overflow-x:hidden;cursor:none;}
 
-body{
-  background:var(--bg);
-  color:var(--ink);
-  font-family:'DM Sans',sans-serif;
-  font-weight:300;
-  overflow-x:hidden;
-  cursor:none;
+/* GRAIN */
+body::after{content:’’;position:fixed;inset:0;
+background-image:url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘300’ height=‘300’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘300’ height=‘300’ filter=‘url(%23n)’ opacity=‘0.025’/%3E%3C/svg%3E”);
+pointer-events:none;z-index:1;opacity:0.5;}
+
+/* ── 3D CANVAS — fixed full screen ── */
+#scene{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none;}
+
+/* ── BLOB GLOW — CSS radial that follows the object ── */
+#blob-glow{
+position:fixed;
+pointer-events:none;
+z-index:1;
+border-radius:50%;
+filter:blur(100px);
+opacity:0.55;
+transition:all 1s cubic-bezier(0.22,1,0.36,1);
+mix-blend-mode:multiply;
 }
 
-/* grain */
-body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1;opacity:0.5;}
-
-/* ── FULL-SCREEN FIXED CANVAS behind everything ── */
-#scene{
-  position:fixed;
-  inset:0;
-  width:100vw;
-  height:100vh;
-  z-index:0;
-  pointer-events:none;
-}
-
-/* ── CONTENT sits above canvas ── */
+/* Content above canvas */
 .content{position:relative;z-index:10;}
 
-/* Sections get a semi-transparent bg so text is always readable */
-section, .sec{
-  padding:7rem 8vw;
-  background:linear-gradient(135deg,rgba(238,232,220,0.88),rgba(232,225,212,0.85));
-  backdrop-filter:blur(2px);
-  border-top:1px solid var(--line);
-  border-bottom:1px solid var(--line);
+/* Section backgrounds — warm translucent so blob shows through */
+section,.sec-inner{
+padding:7rem 8vw;
+background:linear-gradient(135deg,rgba(237,236,232,0.82),rgba(230,228,223,0.78));
+backdrop-filter:blur(4px);
+border-top:1px solid var(–line);
+border-bottom:1px solid var(–line);
 }
 #hero{
-  min-height:100vh;
-  display:flex;align-items:center;
-  padding:9rem 8vw 5rem;
-  background:linear-gradient(135deg,rgba(238,232,220,0.82),rgba(238,232,220,0.65));
-  backdrop-filter:blur(1px);
-  border-bottom:1px solid var(--line);
+min-height:100vh;
+display:flex;align-items:center;
+padding:9rem 8vw 5rem;
+background:linear-gradient(135deg,rgba(237,236,232,0.72),rgba(237,236,232,0.5));
+backdrop-filter:blur(1px);
+border-bottom:1px solid var(–line);
 }
-/* Alternating section backgrounds to create visual rhythm */
-section:nth-child(even),.sec:nth-child(even){
-  background:linear-gradient(135deg,rgba(232,225,212,0.88),rgba(226,218,204,0.85));
+section:nth-child(even){
+background:linear-gradient(135deg,rgba(230,228,223,0.82),rgba(222,218,211,0.78));
 }
 
 /* PRELOADER */
-#pl{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2rem;transition:opacity 0.9s,visibility 0.9s;}
+#pl{position:fixed;inset:0;background:var(–bg);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2rem;transition:opacity 0.9s,visibility 0.9s;}
 #pl.done{opacity:0;visibility:hidden;}
-.pl-logo{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--navy);letter-spacing:0.3em;opacity:0;animation:fu 0.7s 0.3s forwards;}
-.pl-bar{width:160px;height:1px;background:var(--line);overflow:hidden;opacity:0;animation:fu 0.7s 0.5s forwards;}
-.pl-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--gold));width:0;animation:bL 1.8s 0.8s cubic-bezier(0.22,1,0.36,1) forwards;}
+.pl-logo{font-family:‘Cormorant Garamond’,serif;font-size:2.2rem;font-weight:300;color:var(–navy);letter-spacing:0.3em;opacity:0;animation:fu 0.7s 0.3s forwards;}
+.pl-bar{width:160px;height:1px;background:rgba(0,0,0,0.08);overflow:hidden;opacity:0;animation:fu 0.7s 0.5s forwards;}
+.pl-fill{height:100%;background:linear-gradient(90deg,var(–teal),var(–gold));width:0;animation:bL 1.8s 0.8s cubic-bezier(0.22,1,0.36,1) forwards;}
 @keyframes bL{to{width:100%;}}
 @keyframes fu{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
 
 /* CURSOR */
-#cur{width:8px;height:8px;background:var(--teal);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:8888;transition:width 0.3s,height 0.3s;}
-#cr{width:36px;height:36px;border:1.5px solid rgba(0,110,99,0.4);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:8887;}
-body.hov #cur{width:50px;height:50px;background:transparent;border:1.5px solid var(--teal);}
+#cur{width:8px;height:8px;background:var(–teal);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:8888;transition:width 0.3s,height 0.3s;}
+#cr{width:36px;height:36px;border:1.5px solid rgba(0,110,99,0.35);border-radius:50%;position:fixed;top:0;left:0;pointer-events:none;z-index:8887;}
+body.hov #cur{width:50px;height:50px;background:transparent;border:1.5px solid var(–teal);}
 body.hov #cr{opacity:0;}
 
 /* PROGRESS */
-#prg{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--teal),var(--gold));z-index:500;width:0%;}
+#prg{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(–teal),var(–gold));z-index:500;width:0%;}
 
 /* NAV */
-nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:1.4rem 5vw;display:flex;justify-content:space-between;align-items:center;background:rgba(238,232,220,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--line);}
-.n-logo{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink);}
-.n-logo em{font-style:normal;color:var(--teal);}
+nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:1.4rem 5vw;display:flex;justify-content:space-between;align-items:center;background:rgba(237,236,232,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(–line);}
+.n-logo{font-family:‘Cormorant Garamond’,serif;font-size:1.1rem;font-weight:400;letter-spacing:0.2em;text-transform:uppercase;color:var(–ink);}
+.n-logo em{font-style:normal;color:var(–teal);}
 .n-links{display:flex;gap:2.5rem;list-style:none;}
-.n-links a{font-size:0.7rem;font-weight:400;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color 0.3s;}
-.n-links a:hover{color:var(--ink);}
-.n-hire{padding:0.5rem 1.3rem;background:var(--teal);color:rgba(250,247,242,0.95);font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;text-decoration:none;transition:all 0.3s;position:relative;overflow:hidden;}
-.n-hire::before{content:'';position:absolute;inset:0;background:var(--gold);transform:translateX(-100%);transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);}
+.n-links a{font-size:0.7rem;font-weight:400;letter-spacing:0.12em;text-transform:uppercase;color:var(–muted);text-decoration:none;transition:color 0.3s;}
+.n-links a:hover{color:var(–ink);}
+.n-hire{padding:0.5rem 1.3rem;background:var(–teal);color:rgba(248,246,242,0.95);font-family:‘Space Mono’,monospace;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;text-decoration:none;transition:all 0.3s;position:relative;overflow:hidden;}
+.n-hire::before{content:’’;position:absolute;inset:0;background:var(–gold);transform:translateX(-100%);transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);}
 .n-hire:hover::before{transform:translateX(0);}
 .n-hire span{position:relative;z-index:1;}
 
 /* MARQUEE */
-.mq{overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:0.9rem 0;background:rgba(232,225,212,0.9);backdrop-filter:blur(4px);position:relative;z-index:10;}
+.mq{overflow:hidden;border-top:1px solid var(–line);border-bottom:1px solid var(–line);padding:0.9rem 0;background:rgba(230,228,223,0.9);backdrop-filter:blur(4px);position:relative;z-index:10;}
 .mi{display:flex;gap:2.5rem;white-space:nowrap;animation:mq 22s linear infinite;}
-.mi span{font-family:'Cormorant Garamond',serif;font-size:0.85rem;font-weight:300;color:var(--dim);letter-spacing:0.12em;text-transform:uppercase;flex-shrink:0;}
-.mi .a{color:var(--teal2);font-style:italic;}
+.mi span{font-family:‘Cormorant Garamond’,serif;font-size:0.85rem;font-weight:300;color:var(–dim);letter-spacing:0.12em;text-transform:uppercase;flex-shrink:0;}
+.mi .a{color:var(–teal2);font-style:italic;}
 @keyframes mq{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
-/* TEXT CONTENT STYLES */
-.s-tag{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--teal);margin-bottom:0.8rem;display:flex;align-items:center;gap:1rem;}
-.s-tag::after{content:'';width:28px;height:1px;background:var(--teal);}
-.s-h{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,3.5vw,3.5rem);font-weight:300;line-height:1.1;margin-bottom:0.8rem;color:var(--ink);}
-.s-h em{font-style:italic;color:var(--teal);}
-.s-sub{font-size:0.92rem;color:var(--muted);max-width:560px;line-height:1.8;margin-bottom:2.5rem;font-weight:300;}
+/* SECTION UTILS */
 .wrap{max-width:900px;}
+.s-tag{font-family:‘Space Mono’,monospace;font-size:0.58rem;letter-spacing:0.25em;text-transform:uppercase;color:var(–teal);margin-bottom:0.8rem;display:flex;align-items:center;gap:1rem;}
+.s-tag::after{content:’’;width:28px;height:1px;background:var(–teal);}
+.s-h{font-family:‘Cormorant Garamond’,serif;font-size:clamp(2rem,3.5vw,3.5rem);font-weight:300;line-height:1.1;margin-bottom:0.8rem;color:var(–ink);}
+.s-h em{font-style:italic;color:var(–teal);}
+.s-sub{font-size:0.92rem;color:var(–muted);max-width:560px;line-height:1.8;margin-bottom:2.5rem;font-weight:300;}
 
 /* HERO */
-.h-eye{font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--teal2);margin-bottom:1.8rem;display:flex;align-items:center;gap:1rem;opacity:0;animation:fu 0.7s 2.3s forwards;}
-.h-eye::before{content:'';display:inline-block;width:35px;height:1px;background:var(--teal2);}
-.h-title{font-family:'Cormorant Garamond',serif;font-size:clamp(3.5rem,7vw,7.5rem);font-weight:300;line-height:0.95;margin-bottom:1.5rem;}
+.h-eye{font-family:‘Space Mono’,monospace;font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:var(–teal2);margin-bottom:1.8rem;display:flex;align-items:center;gap:1rem;opacity:0;animation:fu 0.7s 2.3s forwards;}
+.h-eye::before{content:’’;display:inline-block;width:35px;height:1px;background:var(–teal2);}
+.h-title{font-family:‘Cormorant Garamond’,serif;font-size:clamp(3.5rem,7vw,7.5rem);font-weight:300;line-height:0.95;margin-bottom:1.5rem;}
 .h-title .ln{display:block;overflow:hidden;}
 .h-title .ln span{display:block;opacity:0;transform:translateY(100%);animation:lU 0.9s cubic-bezier(0.22,1,0.36,1) forwards;}
-.l1 span{animation-delay:2.5s;color:var(--ink);}
-.l2 span{animation-delay:2.65s;font-style:italic;color:var(--teal);}
-.l3 span{animation-delay:2.8s;color:var(--dim);}
+.l1 span{animation-delay:2.5s;color:var(–ink);}
+.l2 span{animation-delay:2.65s;font-style:italic;color:var(–teal);}
+.l3 span{animation-delay:2.8s;color:var(–dim);}
 @keyframes lU{from{opacity:0;transform:translateY(100%);}to{opacity:1;transform:none;}}
-.h-type{font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;color:var(--teal);margin-bottom:1rem;opacity:0;animation:fu 0.7s 3s forwards;min-height:1.4em;}
+.h-type{font-family:‘Space Mono’,monospace;font-size:0.7rem;letter-spacing:0.1em;color:var(–teal);margin-bottom:1rem;opacity:0;animation:fu 0.7s 3s forwards;min-height:1.4em;}
 .tc{animation:bl 0.8s infinite;}
 @keyframes bl{0%,50%{opacity:1;}51%,100%{opacity:0;}}
-.h-desc{font-size:1rem;line-height:1.85;color:var(--muted);margin-bottom:2.5rem;font-weight:300;max-width:520px;opacity:0;animation:fu 0.7s 3.1s forwards;}
-.h-desc strong{color:var(--ink);font-weight:500;}
+.h-desc{font-size:1rem;line-height:1.85;color:var(–muted);margin-bottom:2.5rem;font-weight:300;max-width:520px;opacity:0;animation:fu 0.7s 3.1s forwards;}
+.h-desc strong{color:var(–ink);font-weight:500;}
 .h-btns{display:flex;gap:1rem;flex-wrap:wrap;opacity:0;animation:fu 0.7s 3.3s forwards;}
-.bs{padding:0.9rem 2rem;background:var(--teal);color:rgba(250,247,242,0.95);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;text-decoration:none;transition:all 0.3s;position:relative;overflow:hidden;}
-.bs::before{content:'';position:absolute;inset:0;background:var(--gold);transform:translateX(-101%);transition:transform 0.4s cubic-bezier(0.22,1,0.36,1);}
+.bs{padding:0.9rem 2rem;background:var(–teal);color:rgba(248,246,242,0.95);font-family:‘Space Mono’,monospace;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;text-decoration:none;transition:all 0.3s;position:relative;overflow:hidden;}
+.bs::before{content:’’;position:absolute;inset:0;background:var(–gold);transform:translateX(-101%);transition:transform 0.4s cubic-bezier(0.22,1,0.36,1);}
 .bs:hover::before{transform:translateX(0);}
 .bs span{position:relative;z-index:1;}
-.bg{padding:0.9rem 2rem;background:transparent;color:var(--navy);font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:400;text-decoration:none;border:1.5px solid var(--line);transition:all 0.3s;}
-.bg:hover{border-color:var(--gold);color:var(--gold);}
-.h-scroll{margin-top:3rem;display:flex;align-items:center;gap:1rem;font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--dim);opacity:0;animation:fu 0.7s 3.5s forwards;}
-.s-tr{width:50px;height:1px;background:var(--line);overflow:hidden;}
-.s-fi{width:100%;height:1px;background:var(--teal);animation:sd 1.8s 3.5s ease-in-out infinite;}
+.bg{padding:0.9rem 2rem;background:transparent;color:var(–navy);font-family:‘Space Mono’,monospace;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:400;text-decoration:none;border:1.5px solid var(–line);transition:all 0.3s;}
+.bg:hover{border-color:var(–gold);color:var(–gold);}
+.h-scroll{margin-top:3rem;display:flex;align-items:center;gap:1rem;font-family:‘Space Mono’,monospace;font-size:0.55rem;letter-spacing:0.2em;text-transform:uppercase;color:var(–dim);opacity:0;animation:fu 0.7s 3.5s forwards;}
+.s-tr{width:50px;height:1px;background:var(–line);overflow:hidden;}
+.s-fi{width:100%;height:1px;background:var(–teal);animation:sd 1.8s 3.5s ease-in-out infinite;}
 @keyframes sd{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
 
 /* ABOUT */
-.ab p{font-size:1rem;color:var(--muted);line-height:1.9;margin-bottom:1.3rem;font-weight:300;}
-.ab p strong{color:var(--ink);font-weight:500;}
-.ab p em{color:var(--teal);font-style:normal;font-weight:500;}
-.ab-q{margin:2rem 0;padding:1.8rem 2.2rem;background:rgba(0,110,99,0.05);border-left:3px solid var(--teal);position:relative;transition:all 0.4s;}
+.ab p{font-size:1rem;color:var(–muted);line-height:1.9;margin-bottom:1.3rem;font-weight:300;}
+.ab p strong{color:var(–ink);font-weight:500;}
+.ab p em{color:var(–teal);font-style:normal;font-weight:500;}
+.ab-q{margin:2rem 0;padding:1.8rem 2.2rem;background:rgba(0,110,99,0.05);border-left:3px solid var(–teal);position:relative;transition:all 0.4s;}
 .ab-q:hover{transform:translateX(5px);}
-.ab-q::before{content:'\201C';position:absolute;top:-0.8rem;left:1rem;font-family:'Cormorant Garamond',serif;font-size:5rem;line-height:1;color:rgba(0,110,99,0.12);}
-.ab-q p{font-family:'Cormorant Garamond',serif !important;font-size:1.15rem !important;font-weight:400 !important;color:var(--navy) !important;line-height:1.65 !important;margin:0 !important;}
+.ab-q::before{content:’\201C’;position:absolute;top:-0.8rem;left:1rem;font-family:‘Cormorant Garamond’,serif;font-size:5rem;line-height:1;color:rgba(0,110,99,0.1);}
+.ab-q p{font-family:‘Cormorant Garamond’,serif !important;font-size:1.15rem !important;font-weight:400 !important;color:var(–navy) !important;line-height:1.65 !important;margin:0 !important;}
 .facts{display:flex;flex-wrap:wrap;gap:1rem;margin-top:2rem;}
-.fact{padding:1rem 1.4rem;background:rgba(250,247,242,0.8);border:1px solid var(--line);flex:1;min-width:200px;transition:all 0.3s;}
-.fact:hover{transform:translateY(-2px);box-shadow:var(--sh);}
-.fact-l{font-family:'Space Mono',monospace;font-size:0.55rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--teal);margin-bottom:0.3rem;}
-.fact-v{font-size:0.85rem;color:var(--navy);line-height:1.5;font-weight:400;}
+.fact{padding:1rem 1.4rem;background:rgba(248,246,242,0.85);border:1px solid var(–line);flex:1;min-width:200px;transition:all 0.3s;}
+.fact:hover{transform:translateY(-2px);box-shadow:var(–sh);}
+.fact-l{font-family:‘Space Mono’,monospace;font-size:0.55rem;letter-spacing:0.18em;text-transform:uppercase;color:var(–teal);margin-bottom:0.3rem;}
+.fact-v{font-size:0.85rem;color:var(–navy);line-height:1.5;font-weight:400;}
 .stats-g{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:2rem;}
-.si{padding:1.3rem;background:rgba(250,247,242,0.85);border:1px solid var(--line);transition:all 0.3s;}
-.si:hover{transform:translateY(-3px);box-shadow:var(--sh2);}
-.si-n{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--teal);line-height:1;margin-bottom:0.2rem;}
-.si-l{font-size:0.7rem;color:var(--muted);font-weight:400;line-height:1.4;}
-.si-s{font-size:0.6rem;color:var(--dim);margin-top:0.1rem;}
+.si{padding:1.3rem;background:rgba(248,246,242,0.85);border:1px solid var(–line);transition:all 0.3s;}
+.si:hover{transform:translateY(-3px);box-shadow:var(–sh2);}
+.si-n{font-family:‘Cormorant Garamond’,serif;font-size:2.2rem;font-weight:300;color:var(–teal);line-height:1;margin-bottom:0.2rem;}
+.si-l{font-size:0.7rem;color:var(–muted);font-weight:400;line-height:1.4;}
+.si-s{font-size:0.6rem;color:var(–dim);margin-top:0.1rem;}
 
-/* EXPERIENCE — full width accordion */
-.exp-tabs{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);background:rgba(250,247,242,0.85);}
-.et{border-left:3px solid transparent;border-bottom:1px solid var(--line);cursor:none;transition:all 0.3s;position:relative;overflow:hidden;}
+/* EXPERIENCE */
+.exp-tabs{border:1px solid var(–line);background:rgba(248,246,242,0.88);}
+.et{border-left:3px solid transparent;border-bottom:1px solid var(–line);cursor:none;transition:all 0.3s;position:relative;overflow:hidden;}
 .et:last-child{border-bottom:none;}
-.et::before{content:'';position:absolute;inset:0;background:rgba(0,110,99,0.04);transform:translateX(-100%);transition:transform 0.4s;}
+.et::before{content:’’;position:absolute;inset:0;background:rgba(0,110,99,0.04);transform:translateX(-100%);transition:transform 0.4s;}
 .et:hover::before,.et.op::before{transform:translateX(0);}
-.et:hover,.et.op{border-left-color:var(--teal);}
+.et:hover,.et.op{border-left-color:var(–teal);}
 .et-h{padding:0.9rem 1.5rem;display:flex;justify-content:space-between;align-items:center;}
-.et-dt{font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:0.08em;margin-bottom:0.2rem;}
-.et-co{font-size:0.8rem;color:var(--muted);font-weight:400;transition:color 0.3s;}
-.et.op .et-co{color:var(--ink);}
-.et-ar{font-size:0.75rem;color:var(--dim);transition:transform 0.3s;}
+.et-dt{font-family:‘Space Mono’,monospace;font-size:0.55rem;color:var(–teal);letter-spacing:0.08em;margin-bottom:0.2rem;}
+.et-co{font-size:0.8rem;color:var(–muted);font-weight:400;transition:color 0.3s;}
+.et.op .et-co{color:var(–ink);}
+.et-ar{font-size:0.75rem;color:var(–dim);transition:transform 0.3s;}
 .et.op .et-ar{transform:rotate(180deg);}
 .et-body{max-height:0;overflow:hidden;transition:max-height 0.5s cubic-bezier(0.22,1,0.36,1);}
-.et-body.op{max-height:550px;}
-.et-inner{padding:1.5rem 2rem 2rem;border-top:1px solid var(--line);}
-.ep-t{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:400;color:var(--ink);margin-bottom:0.2rem;}
-.ep-c{font-size:0.8rem;color:var(--gold);font-weight:500;margin-bottom:1.3rem;}
+.et-body.op{max-height:600px;}
+.et-inner{padding:1.5rem 2rem 2rem;border-top:1px solid var(–line);animation:fadeIn 0.4s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.ep-t{font-family:‘Cormorant Garamond’,serif;font-size:1.5rem;font-weight:400;color:var(–ink);margin-bottom:0.2rem;}
+.ep-c{font-size:0.8rem;color:var(–gold);font-weight:500;margin-bottom:1.3rem;}
 .ep-l{list-style:none;display:flex;flex-direction:column;gap:0.6rem;}
-.ep-l li{font-size:0.85rem;color:var(--muted);line-height:1.75;padding-left:1.2rem;position:relative;font-weight:300;}
-.ep-l li::before{content:'';position:absolute;left:0;top:0.7rem;width:6px;height:1px;background:var(--teal);transition:width 0.3s;}
+.ep-l li{font-size:0.85rem;color:var(–muted);line-height:1.75;padding-left:1.2rem;position:relative;font-weight:300;transition:color 0.2s;}
+.ep-l li:hover{color:var(–ink);}
+.ep-l li::before{content:’’;position:absolute;left:0;top:0.7rem;width:6px;height:1px;background:var(–teal);transition:width 0.3s;}
 .ep-l li:hover::before{width:12px;}
-.ep-l li:hover{color:var(--ink);}
-.ep-l li strong{color:var(--ink);font-weight:500;}
-.ep-sub{margin-top:1.3rem;padding:1.1rem 1.4rem;background:rgba(0,110,99,0.04);border-left:2px solid var(--teal);}
-.ep-sub-t{font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--teal);letter-spacing:0.12em;margin-bottom:0.6rem;}
+.ep-l li strong{color:var(–ink);font-weight:500;}
+.ep-sub{margin-top:1.3rem;padding:1.1rem 1.4rem;background:rgba(0,110,99,0.04);border-left:2px solid var(–teal);}
+.ep-sub-t{font-family:‘Space Mono’,monospace;font-size:0.55rem;color:var(–teal);letter-spacing:0.12em;margin-bottom:0.6rem;}
 .ep-sub ul{list-style:none;display:flex;flex-direction:column;gap:0.4rem;}
-.ep-sub ul li{font-size:0.8rem;color:var(--muted);padding-left:1rem;position:relative;line-height:1.55;font-weight:300;}
-.ep-sub ul li::before{content:'·';position:absolute;left:0;color:var(--teal);}
-.ear{margin-top:1.2rem;padding:1rem 1.4rem;background:rgba(13,21,32,0.03);border:1px solid var(--line);}
-.ear-h{font-family:'Space Mono',monospace;font-size:0.52rem;color:var(--dim);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:0.5rem;}
-.ear p{font-size:0.72rem;color:var(--dim);line-height:1.6;}
+.ep-sub ul li{font-size:0.8rem;color:var(–muted);padding-left:1rem;position:relative;line-height:1.55;font-weight:300;}
+.ep-sub ul li::before{content:’·’;position:absolute;left:0;color:var(–teal);}
+.ear{margin-top:1.2rem;padding:1rem 1.4rem;background:rgba(13,21,32,0.03);border:1px solid var(–line);}
+.ear-h{font-family:‘Space Mono’,monospace;font-size:0.52rem;color:var(–dim);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:0.5rem;}
+.ear p{font-size:0.72rem;color:var(–dim);line-height:1.6;}
 
 /* SKILLS */
 .sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
-.sk-c{background:rgba(250,247,242,0.85);border:1px solid var(--line);padding:1.8rem;transition:all 0.4s;position:relative;overflow:hidden;}
-.sk-c::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--teal),var(--gold));transform:scaleX(0);transform-origin:left;transition:transform 0.5s;}
+.sk-c{background:rgba(248,246,242,0.88);border:1px solid var(–line);padding:1.8rem;transition:all 0.4s;position:relative;overflow:hidden;}
+.sk-c::before{content:’’;position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(–teal),var(–gold));transform:scaleX(0);transform-origin:left;transition:transform 0.5s;}
 .sk-c:hover::before{transform:scaleX(1);}
-.sk-c:hover{box-shadow:var(--sh2);transform:translateY(-4px);}
-.sk-c-g{font-family:'Cormorant Garamond',serif;font-size:4.5rem;font-weight:300;color:rgba(0,110,99,0.06);position:absolute;right:0.8rem;top:-0.5rem;line-height:1;pointer-events:none;}
-.sk-n{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;color:var(--ink);margin-bottom:1rem;}
+.sk-c:hover{box-shadow:var(–sh2);transform:translateY(-4px);}
+.sk-c-g{font-family:‘Cormorant Garamond’,serif;font-size:4.5rem;font-weight:300;color:rgba(0,110,99,0.06);position:absolute;right:0.8rem;top:-0.5rem;line-height:1;pointer-events:none;}
+.sk-n{font-family:‘Cormorant Garamond’,serif;font-size:1.1rem;font-weight:400;color:var(–ink);margin-bottom:1rem;}
 .tgs{display:flex;flex-wrap:wrap;gap:0.35rem;}
-.tag{font-size:0.65rem;padding:0.25rem 0.6rem;background:var(--bg);border:1px solid var(--line);color:var(--muted);transition:all 0.22s;cursor:default;position:relative;overflow:hidden;}
-.tag::before{content:'';position:absolute;inset:0;background:var(--teal);transform:scaleX(0);transform-origin:left;transition:transform 0.22s;z-index:-1;}
-.tag:hover{color:rgba(250,247,242,0.95);border-color:var(--teal);}
+.tag{font-size:0.65rem;padding:0.25rem 0.6rem;background:var(–bg);border:1px solid var(–line);color:var(–muted);transition:all 0.22s;cursor:default;position:relative;overflow:hidden;}
+.tag::before{content:’’;position:absolute;inset:0;background:var(–teal);transform:scaleX(0);transform-origin:left;transition:transform 0.22s;z-index:-1;}
+.tag:hover{color:rgba(248,246,242,0.95);border-color:var(–teal);}
 .tag:hover::before{transform:scaleX(1);}
-.tag.gt{background:rgba(184,131,42,0.08);border-color:rgba(184,131,42,0.2);color:var(--gold);}
-.tag.gt::before{background:var(--gold);}
-.tag.gt:hover{color:rgba(250,247,242,0.95);}
+.tag.gt{background:rgba(184,131,42,0.08);border-color:rgba(184,131,42,0.2);color:var(–gold);}
+.tag.gt::before{background:var(–gold);}
+.tag.gt:hover{color:rgba(248,246,242,0.95);}
 .sk-ms{margin-top:0.5rem;}
 .sk-mi{margin-bottom:0.85rem;}
-.sk-ml{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-bottom:0.3rem;}
-.sk-ml span:last-child{color:var(--teal);font-family:'Space Mono',monospace;font-size:0.58rem;}
-.sk-mb{height:2px;background:var(--line);overflow:hidden;}
-.sk-mf{height:100%;background:linear-gradient(90deg,var(--teal),var(--gold));width:0;transition:width 1.2s cubic-bezier(0.22,1,0.36,1);}
+.sk-ml{display:flex;justify-content:space-between;font-size:0.72rem;color:var(–muted);margin-bottom:0.3rem;}
+.sk-ml span:last-child{color:var(–teal);font-family:‘Space Mono’,monospace;font-size:0.58rem;}
+.sk-mb{height:2px;background:var(–line);overflow:hidden;}
+.sk-mf{height:100%;background:linear-gradient(90deg,var(–teal),var(–gold));width:0;transition:width 1.2s cubic-bezier(0.22,1,0.36,1);}
+
+/* CASE STUDIES */
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:3rem;}
+.cs-card{background:rgba(248,246,242,0.9);border:1px solid var(–line);overflow:hidden;transition:all 0.4s;}
+.cs-card:hover{box-shadow:var(–sh2);transform:translateY(-5px);}
+.cs-top{padding:1.8rem 2rem;border-bottom:1px solid var(–line);position:relative;}
+.cs-top::before{content:’’;position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(–teal),var(–gold));}
+.cs-cat{font-family:‘Space Mono’,monospace;font-size:0.52rem;letter-spacing:0.2em;text-transform:uppercase;color:var(–teal);margin-bottom:0.5rem;}
+.cs-name{font-family:‘Cormorant Garamond’,serif;font-size:1.25rem;font-weight:400;color:var(–ink);margin-bottom:0.2rem;}
+.cs-desc{font-size:0.75rem;color:var(–muted);line-height:1.5;}
+.cs-stats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(–line);}
+.cs-stat{padding:1rem;text-align:center;border-right:1px solid var(–line);}
+.cs-stat:last-child{border-right:none;}
+.cs-stat-n{font-family:‘Cormorant Garamond’,serif;font-size:1.7rem;font-weight:300;color:var(–teal);line-height:1;margin-bottom:0.15rem;}
+.cs-stat-l{font-size:0.58rem;color:var(–dim);letter-spacing:0.08em;text-transform:uppercase;}
+.cs-body{padding:1.5rem 2rem;}
+.cs-section-label{font-family:‘Space Mono’,monospace;font-size:0.52rem;letter-spacing:0.18em;text-transform:uppercase;color:var(–gold);margin-bottom:0.5rem;}
+.cs-p{font-size:0.8rem;color:var(–muted);line-height:1.7;font-weight:300;margin-bottom:1rem;}
+.cs-results{display:flex;flex-direction:column;gap:0.45rem;}
+.cs-r{display:flex;gap:0.7rem;padding:0.55rem 0;border-bottom:1px solid var(–line);align-items:baseline;}
+.cs-r:last-child{border-bottom:none;}
+.cs-r-arrow{color:var(–teal);font-size:0.7rem;flex-shrink:0;}
+.cs-r-text{font-size:0.78rem;color:var(–muted);line-height:1.5;}
+.cs-r-text strong{color:var(–ink);font-weight:500;}
+.cs-footer{display:flex;flex-wrap:wrap;gap:0.3rem;padding:1rem 2rem;border-top:1px solid var(–line);background:rgba(0,110,99,0.03);}
+.cs-tool{font-size:0.6rem;padding:0.2rem 0.5rem;background:rgba(248,246,242,0.9);border:1px solid var(–line);color:var(–muted);}
+
+/* TESTIMONIALS */
+.tm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:3rem;}
+.tm-card{background:rgba(248,246,242,0.9);border:1px solid var(–line);padding:2rem;transition:all 0.4s;position:relative;overflow:hidden;}
+.tm-card::before{content:’’;position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(–teal),var(–gold));transform:scaleY(0);transform-origin:top;transition:transform 0.5s;}
+.tm-card:hover::before{transform:scaleY(1);}
+.tm-card:hover{box-shadow:var(–sh2);transform:translateY(-3px);}
+.tm-q{font-family:‘Cormorant Garamond’,serif;font-size:3.5rem;color:rgba(0,110,99,0.1);line-height:0.8;margin-bottom:0.5rem;}
+.tm-text{font-family:‘Cormorant Garamond’,serif;font-size:1rem;color:var(–navy);line-height:1.7;font-style:italic;margin-bottom:1.5rem;}
+.tm-div{height:1px;background:var(–line);margin-bottom:1.2rem;}
+.tm-person{display:flex;align-items:center;gap:0.8rem;}
+.tm-init{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(–teal),var(–gold));display:flex;align-items:center;justify-content:center;font-family:‘Cormorant Garamond’,serif;font-size:1.1rem;color:rgba(248,246,242,0.95);font-weight:600;flex-shrink:0;}
+.tm-name{font-size:0.85rem;color:var(–ink);font-weight:500;margin-bottom:0.1rem;}
+.tm-role{font-size:0.68rem;color:var(–dim);line-height:1.3;}
+.tm-badge{font-family:‘Space Mono’,monospace;font-size:0.5rem;color:var(–teal);letter-spacing:0.08em;margin-top:0.2rem;}
 
 /* EDUCATION */
-.edc{background:rgba(250,247,242,0.85);border:1px solid var(--line);padding:2rem;position:relative;overflow:hidden;transition:all 0.4s;margin-bottom:1rem;}
-.edc::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--teal),var(--gold));transform:scaleY(0);transform-origin:top;transition:transform 0.5s;}
+.edc{background:rgba(248,246,242,0.88);border:1px solid var(–line);padding:2rem;transition:all 0.4s;margin-bottom:1rem;position:relative;overflow:hidden;}
+.edc::after{content:’’;position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(–teal),var(–gold));transform:scaleY(0);transform-origin:top;transition:transform 0.5s;}
 .edc:hover::after{transform:scaleY(1);}
-.edc:hover{box-shadow:var(--sh2);transform:translateX(4px);}
-.ed-y{font-family:'Space Mono',monospace;font-size:0.58rem;color:var(--teal);letter-spacing:0.12em;margin-bottom:0.3rem;}
-.ed-d{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:400;color:var(--ink);margin-bottom:0.2rem;}
-.ed-s{font-size:0.78rem;color:var(--gold);font-weight:500;margin-bottom:0.5rem;}
-.ed-n{font-size:0.75rem;color:var(--muted);line-height:1.65;font-weight:300;}
+.edc:hover{box-shadow:var(–sh2);transform:translateX(4px);}
+.ed-y{font-family:‘Space Mono’,monospace;font-size:0.58rem;color:var(–teal);letter-spacing:0.12em;margin-bottom:0.3rem;}
+.ed-d{font-family:‘Cormorant Garamond’,serif;font-size:1.15rem;font-weight:400;color:var(–ink);margin-bottom:0.2rem;}
+.ed-s{font-size:0.78rem;color:var(–gold);font-weight:500;margin-bottom:0.5rem;}
+.ed-n{font-size:0.75rem;color:var(–muted);line-height:1.65;font-weight:300;}
 .certs{display:flex;flex-direction:column;gap:0.5rem;margin-top:1.5rem;}
-.cr{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 1.1rem;background:rgba(250,247,242,0.85);border:1px solid var(--line);transition:all 0.3s;position:relative;overflow:hidden;}
-.cr::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--teal);transform:scaleY(0);transform-origin:top;transition:transform 0.3s;}
+.cr{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 1.1rem;background:rgba(248,246,242,0.9);border:1px solid var(–line);transition:all 0.3s;position:relative;overflow:hidden;}
+.cr::before{content:’’;position:absolute;left:0;top:0;bottom:0;width:2px;background:var(–teal);transform:scaleY(0);transform-origin:top;transition:transform 0.3s;}
 .cr:hover{padding-left:1.6rem;border-color:rgba(0,110,99,0.2);}
 .cr:hover::before{transform:scaleY(1);}
-.c-n{font-size:0.8rem;color:var(--ink);font-weight:400;}
-.c-i{font-size:0.67rem;color:var(--dim);margin-top:0.1rem;}
+.c-n{font-size:0.8rem;color:var(–ink);font-weight:400;}
+.c-i{font-size:0.67rem;color:var(–dim);margin-top:0.1rem;}
 .c-r{display:flex;align-items:center;gap:0.5rem;}
-.c-y{font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--teal);}
-.cpd{font-family:'Space Mono',monospace;font-size:0.5rem;padding:0.15rem 0.4rem;border:1px solid rgba(184,131,42,0.4);color:var(--gold);}
+.c-y{font-family:‘Space Mono’,monospace;font-size:0.55rem;color:var(–teal);}
+.cpd{font-family:‘Space Mono’,monospace;font-size:0.5rem;padding:0.15rem 0.4rem;border:1px solid rgba(184,131,42,0.4);color:var(–gold);}
 
 /* CONTACT */
-#contact{background:linear-gradient(135deg,rgba(226,218,204,0.9),rgba(232,225,212,0.88));backdrop-filter:blur(2px);}
-.ct-sub{font-size:0.95rem;color:var(--muted);line-height:1.8;margin-bottom:2.5rem;font-weight:300;max-width:560px;}
+#contact{background:linear-gradient(135deg,rgba(222,218,211,0.9),rgba(230,228,223,0.88));}
+.ct-sub{font-size:0.95rem;color:var(–muted);line-height:1.8;margin-bottom:2.5rem;font-weight:300;}
 .ct-links{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;}
-.ctl{padding:0.85rem 1.6rem;border:1.5px solid var(--line);background:rgba(250,247,242,0.88);color:var(--navy);text-decoration:none;font-size:0.8rem;font-weight:400;transition:all 0.3s;position:relative;overflow:hidden;}
-.ctl::before{content:'';position:absolute;inset:0;background:var(--teal);transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);}
-.ctl:hover{color:rgba(250,247,242,0.95);border-color:var(--teal);transform:translateY(-3px);box-shadow:var(--sh2);}
+.ctl{padding:0.85rem 1.6rem;border:1.5px solid var(–line);background:rgba(248,246,242,0.9);color:var(–navy);text-decoration:none;font-size:0.8rem;font-weight:400;transition:all 0.3s;position:relative;overflow:hidden;}
+.ctl::before{content:’’;position:absolute;inset:0;background:var(–teal);transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.22,1,0.36,1);}
+.ctl:hover{color:rgba(248,246,242,0.95);border-color:var(–teal);transform:translateY(-3px);}
 .ctl:hover::before{transform:translateY(0);}
 .ctl span{position:relative;z-index:1;}
-.avail{display:inline-flex;align-items:center;gap:0.7rem;font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(0,110,99,0.25);padding:0.55rem 1.3rem;background:rgba(0,110,99,0.05);}
-.av-dot{width:6px;height:6px;border-radius:50%;background:var(--teal2);animation:pulse 2s infinite;}
+.avail{display:inline-flex;align-items:center;gap:0.7rem;font-family:‘Space Mono’,monospace;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(–teal);border:1px solid rgba(0,110,99,0.25);padding:0.55rem 1.3rem;background:rgba(0,110,99,0.05);}
+.av-dot{width:6px;height:6px;border-radius:50%;background:var(–teal2);animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,168,150,0.4);}50%{box-shadow:0 0 0 6px rgba(0,168,150,0);}}
 
-footer{padding:1.8rem 5vw;border-top:1px solid var(--line);background:rgba(226,218,204,0.95);display:flex;justify-content:space-between;align-items:center;position:relative;z-index:10;}
-footer span{font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--dim);letter-spacing:0.1em;}
-footer span:last-child{color:var(--teal);}
+footer{padding:1.8rem 5vw;border-top:1px solid var(–line);background:rgba(222,218,211,0.95);display:flex;justify-content:space-between;align-items:center;position:relative;z-index:10;}
+footer span{font-family:‘Space Mono’,monospace;font-size:0.55rem;color:var(–dim);letter-spacing:0.1em;}
+footer span:last-child{color:var(–teal);}
 
-/* TRAIL particle */
 .tp{position:fixed;border-radius:50%;pointer-events:none;z-index:4;animation:tf 1s forwards;}
-@keyframes tf{0%{opacity:0.5;transform:scale(1);}100%{opacity:0;transform:scale(0);}}
+@keyframes tf{0%{opacity:0.6;transform:scale(1);}100%{opacity:0;transform:scale(0);}}
 
-/* REVEALS */
 .rev{opacity:0;transform:translateY(24px);transition:all 0.8s cubic-bezier(0.22,1,0.36,1);}
 .rev.on{opacity:1;transform:none;}
 
-@media(max-width:900px){.sk-grid{grid-template-columns:1fr 1fr;}.stats-g{grid-template-columns:1fr 1fr;}}
+@media(max-width:900px){
+.sk-grid,.cs-grid,.tm-grid{grid-template-columns:1fr 1fr;}
+.stats-g{grid-template-columns:1fr 1fr;}
+section,.sec-inner{padding:5rem 5vw;}
+#hero{padding:8rem 5vw 4rem;}
+}
 @media(max-width:640px){
-  nav{padding:1rem 5vw;}
-  .n-links,.n-hire{display:none;}
-  section,.sec{padding:5rem 5vw;}
-  #hero{padding:8rem 5vw 4rem;}
-  .sk-grid{grid-template-columns:1fr;}
-  .stats-g{grid-template-columns:1fr 1fr;}
-  footer{flex-direction:column;gap:0.8rem;text-align:center;}
+nav{padding:1rem 5vw;} .n-links,.n-hire{display:none;}
+.sk-grid,.cs-grid,.tm-grid{grid-template-columns:1fr;}
+footer{flex-direction:column;gap:0.8rem;text-align:center;}
 }
 </style>
+
 </head>
 <body>
 
 <div id="pl"><div class="pl-logo">P · G</div><div class="pl-bar"><div class="pl-fill"></div></div></div>
 <div id="cur"></div><div id="cr"></div><div id="prg"></div>
+<div id="blob-glow"></div>
 
-<!-- FULL SCREEN 3D CANVAS -->
+<!-- 3D SCENE -->
+
 <canvas id="scene"></canvas>
 
-<!-- ALL CONTENT -->
 <div class="content">
-
 <nav>
   <div class="n-logo">Priya <em>Goswami</em></div>
   <ul class="n-links">
-    <li><a href="#hero">Home</a></li>
-    <li><a href="#about">About</a></li>
-    <li><a href="#experience">Experience</a></li>
-    <li><a href="#skills">Skills</a></li>
-    <li><a href="#education">Education</a></li>
-    <li><a href="#contact">Contact</a></li>
+    <li><a href="#hero">Home</a></li><li><a href="#about">About</a></li>
+    <li><a href="#experience">Experience</a></li><li><a href="#skills">Skills</a></li>
+    <li><a href="#cases">Work</a></li><li><a href="#testimonials">Reviews</a></li>
+    <li><a href="#education">Education</a></li><li><a href="#contact">Contact</a></li>
   </ul>
   <a href="mailto:goswamipriya947@gmail.com" class="n-hire"><span>Hire Me</span></a>
 </nav>
+
+<!-- HERO -->
 
 <section id="hero">
   <div class="wrap">
@@ -315,7 +355,9 @@ footer span:last-child{color:var(--teal);}
   </div>
 </section>
 
-<div class="mq"><div class="mi"><span>Technical SEO</span><span class="a">·</span><span>AI Overviews</span><span class="a">·</span><span>GEO</span><span class="a">·</span><span>E-E-A-T</span><span class="a">·</span><span>Core Web Vitals</span><span class="a">·</span><span>Schema Markup</span><span class="a">·</span><span>LLM Citations</span><span class="a">·</span><span>Site Migrations</span><span class="a">·</span><span>Link Building</span><span class="a">·</span><span>International SEO</span><span class="a">·</span><span>Revenue-Led SEO</span><span class="a">·</span><span>Technical SEO</span><span class="a">·</span><span>AI Overviews</span><span class="a">·</span><span>GEO</span><span class="a">·</span><span>E-E-A-T</span><span class="a">·</span><span>Core Web Vitals</span><span class="a">·</span><span>Schema Markup</span><span class="a">·</span><span>LLM Citations</span><span class="a">·</span><span>Site Migrations</span><span class="a">·</span><span>Link Building</span><span class="a">·</span><span>International SEO</span><span class="a">·</span><span>Revenue-Led SEO</span><span class="a">·</span></div></div>
+<div class="mq"><div class="mi"><span>Technical SEO</span><span class="a">·</span><span>AI Overviews</span><span class="a">·</span><span>GEO</span><span class="a">·</span><span>E-E-A-T</span><span class="a">·</span><span>Core Web Vitals</span><span class="a">·</span><span>Schema Markup</span><span class="a">·</span><span>LLM Citations</span><span class="a">·</span><span>Site Migrations</span><span class="a">·</span><span>Link Building</span><span class="a">·</span><span>International SEO</span><span class="a">·</span><span>Revenue-Led SEO</span><span class="a">·</span><span>Technical SEO</span><span class="a">·</span><span>AI Overviews</span><span class="a">·</span><span>GEO</span><span class="a">·</span><span>E-E-A-T</span><span class="a">·</span><span>Core Web Vitals</span><span class="a">·</span><span>Schema Markup</span><span class="a">·</span><span>LLM Citations</span><span class="a">·</span><span>Site Migrations</span><span class="a">·</span></div></div>
+
+<!-- ABOUT -->
 
 <section id="about">
   <div class="wrap">
@@ -328,7 +370,7 @@ footer span:last-child{color:var(--teal);}
     </div>
     <div class="facts rev">
       <div class="fact"><div class="fact-l">Location</div><div class="fact-v">West Midlands, UK · Hybrid or Remote</div></div>
-      <div class="fact"><div class="fact-l">Target Roles</div><div class="fact-v">Senior SEO Manager · Head of SEO · SEO Lead</div></div>
+      <div class="fact"><div class="fact-l">Target Roles</div><div class="fact-v">Senior SEO Manager · Head of SEO · SEO Lead · AEO/GEO</div></div>
       <div class="fact"><div class="fact-l">Sectors</div><div class="fact-v">B2B SaaS · eCommerce · Healthcare · AI Transformation</div></div>
       <div class="fact"><div class="fact-l">Markets</div><div class="fact-v">UK · United States · Australia · India</div></div>
     </div>
@@ -341,20 +383,24 @@ footer span:last-child{color:var(--teal);}
   </div>
 </section>
 
+<!-- EXPERIENCE -->
+
 <section id="experience">
   <div class="wrap">
     <div class="s-tag rev">Experience</div>
     <h2 class="s-h rev">A decade of <em>results.</em></h2>
     <div class="exp-tabs rev">
-      <div class="et op" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Apr 2025 – Apr 2026</div><div class="et-co">MSc AI · Aston University + PCOS Challenge</div></div><span class="et-ar">▾</span></div><div class="et-body op"><div class="et-inner"><div class="ep-t">MSc Artificial Intelligence</div><div class="ep-c">Aston University · Full-time Postgraduate Study</div><ul class="ep-l"><li>Dissertation: <strong>AI-powered Skill Evaluation Platform</strong> — NLP, LLMs, AI Overviews, GEO and LLM citation behaviour</li><li>Investigating how generative AI reshapes search — applying to live work now</li></ul><div class="ep-sub"><div class="ep-sub-t">↳ Practical Placement — PCOS Challenge (Mar–Apr 2026)</div><ul><li>Medical SEO with E-E-A-T compliance, structured data and schema markup across a YMYL health site</li><li>Site migration URL mapping — audited and mapped <strong>398 URLs</strong> using AI-assisted analysis</li><li>Built Looker Studio dashboards; applied GEO strategy and AI-driven content automation</li></ul></div></div></div></div>
-      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Mar 2024 – Mar 2025</div><div class="et-co">Rysun Labs — AI Digital Transformation</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO & Digital Marketing Executive</div><div class="ep-c">Rysun Labs — AI Digital Transformation Consultancy · US · UK · Australia · India</div><ul class="ep-l"><li>Retail and high-tech consulting verticals — <strong>retail dynamic pricing</strong> strategy and chatbot-for-retail content</li><li>Tracked <strong>69,800+ monthly impressions</strong> across 4 markets via Looker Studio; CEO KPI reporting</li><li>Weekly Brevo email campaigns; GBP and reputation management; end-to-end link building</li></ul></div></div></div>
+      <div class="et op" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Apr 2025 – Apr 2026</div><div class="et-co">MSc AI · Aston University + PCOS</div></div><span class="et-ar">▾</span></div><div class="et-body op"><div class="et-inner"><div class="ep-t">MSc Artificial Intelligence</div><div class="ep-c">Aston University · Full-time Postgraduate Study</div><ul class="ep-l"><li>Dissertation: <strong>AI-powered Skill Evaluation Platform</strong> — NLP, LLMs, AI Overviews, GEO and LLM citation behaviour</li></ul><div class="ep-sub"><div class="ep-sub-t">↳ Practical Placement — PCOS Challenge (Mar–Apr 2026)</div><ul><li>Medical SEO with E-E-A-T compliance, structured data and schema markup</li><li>Site migration URL mapping — audited and mapped <strong>398 URLs</strong> using AI-assisted analysis</li><li>Built Looker Studio dashboards; applied GEO strategy and AI-driven content automation</li></ul></div></div></div></div>
+      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Mar 2024 – Mar 2025</div><div class="et-co">Rysun Labs — AI Digital Transformation</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO & Digital Marketing Executive</div><div class="ep-c">Rysun Labs — AI Digital Transformation Consultancy · US · UK · Australia · India</div><ul class="ep-l"><li>Retail and high-tech consulting verticals — <strong>retail dynamic pricing</strong> strategy content</li><li>Tracked <strong>69,800+ monthly impressions</strong> across 4 markets via Looker Studio; CEO KPI reporting</li><li>Weekly Brevo email campaigns; GBP and reputation management; end-to-end link building</li></ul></div></div></div>
       <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Aug 2023 – Mar 2024</div><div class="et-co">Freelance SEO Consultant</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">Freelance SEO & Digital Marketing Consultant</div><div class="ep-c">Accounting & Professional Services Sector</div><ul class="ep-l"><li>End-to-end SEO for a new-to-market accounting outsourcing firm targeting CPA and B2B audiences</li><li>Content calendar; 4 × 1,500-word blogs/month; 15 social posts/month; 50 directory listings</li></ul></div></div></div>
-      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Apr 2022 – Aug 2023</div><div class="et-co">Unison Globus — SEO Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO Manager</div><div class="ep-c">Unison Globus Aalliance Pvt Ltd — B2B / Professional Services</div><ul class="ep-l"><li>Grew organic presence to <strong>11,500+ ranked keywords</strong> and <strong>$2,900 estimated monthly traffic value</strong></li><li>7–8 qualified B2B leads/month; full technical SEO ownership; trained junior team</li></ul></div></div></div>
-      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">May 2021 – Mar 2022</div><div class="et-co">Initor Global UK — SEO Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO Manager</div><div class="ep-c">Initor Global Bot Book PVT LTD UK — Outsourced Accounting & Tax · UK Market</div><ul class="ep-l"><li>Grew organic traffic by <strong>640%</strong> and ranked <strong>102 keywords</strong> targeting UK search visibility</li><li>Full technical stack: canonical tags, 301 redirects, sitemaps, robots.txt, hreflang, GSC monitoring</li></ul></div></div></div>
-      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Feb 2018 – Apr 2021</div><div class="et-co">Echo Innovate IT — SEO & Social Media Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO & Social Media Manager</div><div class="ep-c">Echo Innovate IT Solutions PVT LTD — IT / Mobile App Dev · US · UK · Australia</div><ul class="ep-l"><li>Grew total users by <strong>322% to 189,200 cumulative users</strong> — <strong>17,000+ monthly organic visitors</strong></li><li>Ranked mobile app keywords in <strong>Top 5 Google positions</strong> across 3 markets with hreflang</li><li>Grew social media by <strong>50%</strong>; trained and mentored interns in link building</li></ul><div class="ear"><div class="ear-h">Earlier Experience</div><p>SEO Training — Tekblink India (Jun 2017–Feb 2018) · Sales & Social Media — Kesari Export (Jan 2016–Jun 2017) · Content Writer — 360 Web Pointer (Jan 2015–Dec 2015)</p></div></div></div></div>
+      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Apr 2022 – Aug 2023</div><div class="et-co">Unison Globus — SEO Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO Manager</div><div class="ep-c">Unison Globus Aalliance Pvt Ltd — B2B / Professional Services</div><ul class="ep-l"><li>Grew organic presence to <strong>11,500+ ranked keywords</strong> and <strong>$2,900 estimated monthly traffic value</strong></li><li>Generated 7–8 qualified B2B leads/month; full technical SEO; trained junior team</li></ul></div></div></div>
+      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">May 2021 – Mar 2022</div><div class="et-co">Initor Global UK — SEO Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO Manager</div><div class="ep-c">Initor Global Bot Book PVT LTD UK — Outsourced Accounting & Tax · UK Market</div><ul class="ep-l"><li>Grew organic traffic by <strong>640%</strong> and ranked <strong>102 keywords</strong> targeting UK search visibility</li><li>Full technical stack: canonical tags, 301 redirects, sitemaps, robots.txt, hreflang, GSC</li></ul></div></div></div>
+      <div class="et" onclick="xt(this)"><div class="et-h"><div><div class="et-dt">Feb 2018 – Apr 2021</div><div class="et-co">Echo Innovate IT — SEO & Social Media Manager</div></div><span class="et-ar">▾</span></div><div class="et-body"><div class="et-inner"><div class="ep-t">SEO & Social Media Manager</div><div class="ep-c">Echo Innovate IT Solutions PVT LTD — IT / Mobile App Dev · US · UK · Australia</div><ul class="ep-l"><li>Grew total users by <strong>322% to 189,200 cumulative users</strong> — <strong>17,000+ monthly organic visitors</strong></li><li>Ranked mobile app keywords in <strong>Top 5 Google positions</strong> across 3 markets with hreflang</li><li>Grew social media by <strong>50%</strong>; trained and mentored interns</li></ul><div class="ear"><div class="ear-h">Earlier Experience</div><p>SEO Training — Tekblink India (Jun 2017–Feb 2018) · Sales & Social Media — Kesari Export (Jan 2016–Jun 2017) · Content Writer — 360 Web Pointer (Jan 2015–Dec 2015)</p></div></div></div></div>
     </div>
   </div>
 </section>
+
+<!-- SKILLS -->
 
 <section id="skills">
   <div class="wrap">
@@ -378,13 +424,144 @@ footer span:last-child{color:var(--teal);}
   </div>
 </section>
 
+<!-- CASE STUDIES -->
+
+<section id="cases">
+  <div class="wrap">
+    <div class="s-tag rev">Case Studies</div>
+    <h2 class="s-h rev">Results that <em>speak for themselves.</em></h2>
+    <p class="s-sub rev">Real campaigns. Real data. Verified outcomes.</p>
+    <div class="cs-grid">
+
+```
+  <div class="cs-card rev">
+    <div class="cs-top">
+      <div class="cs-cat">Case Study 01 · IT / Mobile App Dev · US · UK · Australia</div>
+      <div class="cs-name">Echo Innovate IT Solutions</div>
+      <div class="cs-desc">Zero to 17,000+ monthly organic visitors — built from scratch over 3 years</div>
+    </div>
+    <div class="cs-stats">
+      <div class="cs-stat"><div class="cs-stat-n">322%</div><div class="cs-stat-l">User Growth</div></div>
+      <div class="cs-stat"><div class="cs-stat-n">189K</div><div class="cs-stat-l">Cumul. Users</div></div>
+      <div class="cs-stat"><div class="cs-stat-n">17K+</div><div class="cs-stat-l">Monthly Visitors</div></div>
+    </div>
+    <div class="cs-body">
+      <div class="cs-section-label">The Challenge</div>
+      <p class="cs-p">Echo Innovate IT had under 100 monthly organic visitors with no established search presence. Targeting the competitive mobile app development market across US, UK and Australia — with no paid budget.</p>
+      <div class="cs-section-label">What I Did</div>
+      <div class="cs-results">
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Built full technical foundation: crawl architecture, hreflang for 3 markets, sitemaps, Core Web Vitals</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Developed topic clusters around mobile app development, ranking competitive terms in <strong>Top 5 Google positions</strong></span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Built high-authority backlink profile through contextual dofollow link acquisition</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Grew social media channels by <strong>50%</strong> through organic content aligned to search strategy</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Result: <strong>+322% users, 189,200 cumulative users, 17,000+ monthly organic visitors</strong> — sustained over 3 years</span></div>
+      </div>
+    </div>
+    <div class="cs-footer">
+      <span class="cs-tool">Technical SEO</span><span class="cs-tool">hreflang</span><span class="cs-tool">Link Building</span><span class="cs-tool">Google Analytics</span><span class="cs-tool">GSC</span><span class="cs-tool">Core Web Vitals</span><span class="cs-tool">Content Strategy</span>
+    </div>
+  </div>
+
+  <div class="cs-card rev">
+    <div class="cs-top">
+      <div class="cs-cat">Case Study 02 · B2B / CPA Accounting Outsourcing · US Market</div>
+      <div class="cs-name">Unison Globus Aalliance</div>
+      <div class="cs-desc">Built organic presence generating qualified B2B leads from a standing start</div>
+    </div>
+    <div class="cs-stats">
+      <div class="cs-stat"><div class="cs-stat-n">11.5K</div><div class="cs-stat-l">Keywords Ranked</div></div>
+      <div class="cs-stat"><div class="cs-stat-n">$2.9K</div><div class="cs-stat-l">Monthly Traffic Value</div></div>
+      <div class="cs-stat"><div class="cs-stat-n">7–8</div><div class="cs-stat-l">Leads/Month</div></div>
+    </div>
+    <div class="cs-body">
+      <div class="cs-section-label">The Challenge</div>
+      <p class="cs-p">Unison Globus needed to dominate high-intent US searches around CPA accounting outsourcing — extremely competitive commercial keywords with strong local and national competition.</p>
+      <div class="cs-section-label">What I Did</div>
+      <div class="cs-results">
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Targeted high-intent CPA keywords: "best cpa near me", "cpas near me", "average cost of tax preparation" — ranking page 1 across all</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Built topic authority across CPA cost, outsourcing value and service comparison content</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Full technical SEO ownership: sitemaps, canonical tags, crawl error resolution, page speed</span></div>
+        <div class="cs-r"><span class="cs-r-arrow">→</span><span class="cs-r-text">Result: <strong>11,500+ keywords ranked</strong>, <strong>$2,900 estimated monthly traffic value</strong>, <strong>7–8 qualified high-ticket leads/month</strong></span></div>
+      </div>
+    </div>
+    <div class="cs-footer">
+      <span class="cs-tool">SEMrush</span><span class="cs-tool">Technical SEO</span><span class="cs-tool">Keyword Strategy</span><span class="cs-tool">Content Strategy</span><span class="cs-tool">Link Building</span><span class="cs-tool">GSC</span>
+    </div>
+  </div>
+
+</div>
+```
+
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+
+<section id="testimonials">
+  <div class="wrap">
+    <div class="s-tag rev">Testimonials</div>
+    <h2 class="s-h rev">What clients <em>say.</em></h2>
+    <p class="s-sub rev">Verified LinkedIn recommendations from clients and colleagues.</p>
+    <div class="tm-grid">
+
+```
+  <div class="tm-card rev">
+    <div class="tm-q">"</div>
+    <div class="tm-text">I have been working with Priya over the last year and she has been truly amazing. She is a great team partner with excellent SEO skills. Any team who would have Priya would definitely be getting a combo full of knowledge, fun, and masti. So, don't miss out on working with her.</div>
+    <div class="tm-div"></div>
+    <div class="tm-person">
+      <div class="tm-init">S</div>
+      <div>
+        <div class="tm-name">Sonali Sood</div>
+        <div class="tm-role">Founding GTM & Organic Growth Lead @ CodeAnt AI · Organic Growth in the AI Search Era</div>
+        <div class="tm-badge">✓ LinkedIn Recommendation · July 2023</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tm-card rev">
+    <div class="tm-q">"</div>
+    <div class="tm-text">I'm thrilled with the support Priya provided for my physiotherapy business! She expertly handled my Google My Business setup and revamped my Instagram social media presence. Her efforts have led to increased visibility and engagement with potential clients. I'm truly grateful and highly recommend her services!</div>
+    <div class="tm-div"></div>
+    <div class="tm-person">
+      <div class="tm-init">P</div>
+      <div>
+        <div class="tm-name">Palak Shrimali</div>
+        <div class="tm-role">MPT in Neurosciences · Neurosciences (Adult & Pedia)</div>
+        <div class="tm-badge">✓ LinkedIn Recommendation · July 2023</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tm-card rev">
+    <div class="tm-q">"</div>
+    <div class="tm-text">Priya Goswami's marketing consultation was a game-changer for my interior designing business! Her tailored plan brought real results — boosting inquiries and leads from my ideal clients. I'm genuinely grateful for her expertise and dedication to my success. Highly recommended!</div>
+    <div class="tm-div"></div>
+    <div class="tm-person">
+      <div class="tm-init">S</div>
+      <div>
+        <div class="tm-name">Shriya Jain</div>
+        <div class="tm-role">Interior Designer</div>
+        <div class="tm-badge">✓ LinkedIn Recommendation · July 2023</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+```
+
+  </div>
+</section>
+
+<!-- EDUCATION -->
+
 <section id="education">
   <div class="wrap">
     <div class="s-tag rev">Education & Certifications</div>
     <h2 class="s-h rev">Always <em>learning.</em></h2>
     <div class="edc rev"><div class="ed-y">Apr 2025 – Apr 2026</div><div class="ed-d">MSc Artificial Intelligence</div><div class="ed-s">Aston University, Birmingham, UK</div><div class="ed-n">Dissertation: AI-powered Skill Evaluation Platform. Research: NLP, LLMs, AI Overviews, GEO and LLM citation behaviour applied to organic search visibility.</div></div>
     <div class="edc rev"><div class="ed-y">2023</div><div class="ed-d">Advanced Digital Marketing & Strategy</div><div class="ed-s">IIM Udaipur — Indian Institute of Management</div></div>
-    <div class="edc rev"><div class="ed-y">2011 – 2015</div><div class="ed-d">BEng Computer Engineering</div><div class="ed-s">Gujarat Technological University, India</div><div class="ed-n">Engineering foundation underpins deep technical SEO capabilities — crawl architecture to JavaScript rendering.</div></div>
+    <div class="edc rev"><div class="ed-y">2011 – 2015</div><div class="ed-d">BEng Computer Engineering</div><div class="ed-s">Gujarat Technological University, India</div><div class="ed-n">Engineering foundation underpins deep technical SEO capabilities.</div></div>
     <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;color:var(--ink);margin:1.5rem 0 0.8rem;" class="rev">Certifications</div>
     <div class="certs">
       <div class="cr rev"><div><div class="c-n">Digital Marketing Certification Level 2</div><div class="c-i">Staff Skills Academy+</div></div><div class="c-r"><span class="cpd">CPD</span><span class="c-y">May 2026</span></div></div>
@@ -396,6 +573,8 @@ footer span:last-child{color:var(--teal);}
     </div>
   </div>
 </section>
+
+<!-- CONTACT -->
 
 <section id="contact">
   <div class="wrap">
@@ -411,331 +590,237 @@ footer span:last-child{color:var(--teal);}
 </section>
 
 <footer><span>© 2026 Priya Goswami</span><span>goswamipriya.github.io/portfolio</span></footer>
-
-</div><!-- end .content -->
+</div>
 
 <script>
-/* ═══════════════════════════════════════════════════════════════
-   THE ROAMING SPHERE
-   — full-viewport fixed canvas
-   — object follows a Lissajous / figure-8 / wave path
-   — path driven by scroll + time so it genuinely moves
-     left, right, up, down, diagonally as you scroll
-   — changes colour, size, speed per section
-═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   TRENDING LIQUID CHROME MORPHING BLOB
+   — MeshPhysicalMaterial with metalness + clearcoat
+   — Multiple coloured orbiting lights = dynamic reflections
+   — Heavy vertex displacement = organic blob morphing
+   — Path-driven movement across whole page on scroll
+═══════════════════════════════════════════════════════ */
+const cvs=document.getElementById('scene');
+const R=new THREE.WebGLRenderer({canvas:cvs,antialias:true,alpha:true,powerPreference:"high-performance"});
+R.setPixelRatio(Math.min(devicePixelRatio,2));
+R.setSize(innerWidth,innerHeight);
+R.setClearColor(0x000000,0);
+R.shadowMap.enabled=true;
 
-const cvs = document.getElementById('scene');
-const R   = new THREE.WebGLRenderer({canvas:cvs, antialias:true, alpha:true});
-R.setPixelRatio(Math.min(devicePixelRatio, 2));
-R.setSize(innerWidth, innerHeight);
-R.setClearColor(0x000000, 0);
+const S=new THREE.Scene();
+const C=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,200);
+C.position.z=10;
 
-const scene = new THREE.Scene();
-const cam   = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
-cam.position.z = 14;
+/* ── ENVIRONMENT (fake reflections via env color) ── */
+S.background=null;
 
-/* ── Lighting ── */
-scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-const dl1 = new THREE.DirectionalLight(0x006E63, 2.2); dl1.position.set(5,5,5); scene.add(dl1);
-const dl2 = new THREE.DirectionalLight(0xB8832A, 1.0); dl2.position.set(-4,-3,4); scene.add(dl2);
-const pl  = new THREE.PointLight(0x00ffd1, 3, 30);     scene.add(pl);
+/* ── BLOB GEOMETRY — high-res sphere for smooth morphing ── */
+const bGeo=new THREE.SphereGeometry(2.2,128,128);
+// Store original positions
+const origPos=Float32Array.from(bGeo.attributes.position.array);
 
-/* ── THE OBJECT: Morphing gem ──
-   We use a subdivided icosahedron and deform its vertices
-   over time to create an organic blob shape             */
-const GEO_DETAIL = 4; // subdivision level
-const baseGeo = new THREE.IcosahedronGeometry(2, GEO_DETAIL);
-
-// Store original positions for morphing
-const origPos = baseGeo.attributes.position.array.slice();
-
-const mat = new THREE.MeshPhongMaterial({
-  color:    0x006E63,
-  emissive: 0x002211,
-  specular: 0xffffff,
-  shininess:150,
-  transparent:true,
-  opacity:0.82,
+/* ── CHROME/LIQUID METAL MATERIAL ── */
+const bMat=new THREE.MeshPhongMaterial({
+  color:new THREE.Color(0x2a7a72),
+  specular:new THREE.Color(0xffffff),
+  shininess:400,
+  transparent:false,
+  opacity:1.0,
 });
-const gem = new THREE.Mesh(baseGeo, mat);
-scene.add(gem);
+const blob=new THREE.Mesh(bGeo,bMat);
+S.add(blob);
 
-/* Wireframe on the same mesh */
-const wireMat = new THREE.MeshBasicMaterial({
-  color:0x00ffd1, wireframe:true, transparent:true, opacity:0.1
+/* ── INNER GLOW CORE ── */
+const coreMat=new THREE.MeshBasicMaterial({color:0x00ffd1,transparent:true,opacity:0.15});
+const core=new THREE.Mesh(new THREE.SphereGeometry(1.8,32,32),coreMat);
+blob.add(core);
+
+/* ── MULTIPLE ORBITING COLOURED LIGHTS
+   These create the iridescent/chrome look by
+   hitting the blob from different angles ── */
+const lights=[];
+const lightConfigs=[
+  {color:0x00ffd1,intensity:8,r:5,sp:0.018,ph:0,   ys:2},
+  {color:0xf0b429,intensity:6,r:6,sp:0.013,ph:2.1, ys:3},
+  {color:0x006E63,intensity:5,r:4,sp:0.022,ph:4.2, ys:1},
+  {color:0xff6b8a,intensity:4,r:7,sp:0.010,ph:1.0, ys:4},
+  {color:0xb8832a,intensity:5,r:5,sp:0.016,ph:3.5, ys:2},
+];
+lightConfigs.forEach(cfg=>{
+  const l=new THREE.PointLight(cfg.color,cfg.intensity,30);
+  S.add(l);
+  lights.push({light:l,...cfg,angle:cfg.ph});
 });
-const wire = new THREE.Mesh(baseGeo.clone(), wireMat);
-scene.add(wire);
 
-/* Inner glowing core */
-const core = new THREE.Mesh(
-  new THREE.SphereGeometry(0.65, 12, 12),
-  new THREE.MeshBasicMaterial({color:0x00ffd1, transparent:true, opacity:0.35})
-);
-scene.add(core);
+/* Ambient so nothing goes pitch black */
+S.add(new THREE.AmbientLight(0xffffff,0.08));
 
-/* Halo ring that always faces camera */
-const haloRing = new THREE.Mesh(
-  new THREE.TorusGeometry(3.2, 0.04, 6, 80),
-  new THREE.MeshBasicMaterial({color:0xB8832A, transparent:true, opacity:0.45})
-);
-scene.add(haloRing);
-
-/* Small orbiting dots */
-const orbGroup = new THREE.Group();
-scene.add(orbGroup);
-const orbs = [];
-const ORB_COUNT = 8;
-for(let i=0;i<ORB_COUNT;i++){
-  const a = i/ORB_COUNT*Math.PI*2;
-  const m = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08+i*0.015, 6, 6),
-    new THREE.MeshBasicMaterial({color: i%2===0?0x006E63:0xB8832A, transparent:true, opacity:0.7})
-  );
-  orbGroup.add(m);
-  orbs.push({mesh:m, angle:a, r:3.5+i*0.3, ys:0.5+Math.random()*0.5, speed:0.012+i*0.002});
-}
-
-/* Sparkle particles — static small dots near the gem */
-const sparkCount = 60;
-const sparkGeo = new THREE.BufferGeometry();
-const sparkPos = new Float32Array(sparkCount*3);
-const sparkCol = new Float32Array(sparkCount*3);
-const tCol = new THREE.Color(0x006E63);
-const gCol = new THREE.Color(0xB8832A);
-for(let i=0;i<sparkCount;i++){
-  const theta = Math.random()*Math.PI*2;
-  const phi   = Math.acos(2*Math.random()-1);
-  const r     = 3+Math.random()*4;
-  sparkPos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
-  sparkPos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
-  sparkPos[i*3+2] = r*Math.cos(phi);
-  const c = Math.random()>0.5?tCol:gCol;
-  sparkCol[i*3]=c.r; sparkCol[i*3+1]=c.g; sparkCol[i*3+2]=c.b;
-}
-sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos,3));
-sparkGeo.setAttribute('color',    new THREE.BufferAttribute(sparkCol,3));
-const sparks = new THREE.Points(sparkGeo,
-  new THREE.PointsMaterial({size:0.12, vertexColors:true, transparent:true, opacity:0.6})
-);
-scene.add(sparks);
-
-/* ── PATH DEFINITION ──────────────────────────────────────────
-   The gem follows a looping path defined by control points.
-   As scroll progress (0→1) increases, it moves through these
-   waypoints using smooth interpolation.
-
-   Each waypoint:
-   - x: -5 (far left) to +5 (far right)  — viewport width mapped
-   - y: +4 (top) to -4 (bottom)           — viewport height mapped
-   - scale, color, emissive, speed, morphAmt
-─────────────────────────────────────────────────────────────── */
-const PATH = [
-  /* Hero start — right side, upper */
-  { t:0.00, x: 3.5, y: 2.5, scale:1.9, speed:0.008, color:0x006E63, emissive:0x002211, morph:0.3, ringTilt:0.0 },
-  /* swings left — mid hero */
-  { t:0.08, x:-3.0, y: 1.8, scale:1.4, speed:0.014, color:0x00A896, emissive:0x003322, morph:0.5, ringTilt:0.5 },
-  /* shoots up right — hero/marquee boundary */
-  { t:0.13, x: 4.0, y: 3.5, scale:1.1, speed:0.020, color:0x8ECFC9, emissive:0x1a4440, morph:0.7, ringTilt:0.8 },
-  /* drops to centre — about section top */
-  { t:0.20, x: 0.5, y: 0.5, scale:1.8, speed:0.016, color:0x006E63, emissive:0x002211, morph:0.4, ringTilt:0.3 },
-  /* swings far left — about mid */
-  { t:0.28, x:-4.5, y:-0.5, scale:1.3, speed:0.022, color:0x00A896, emissive:0x003322, morph:0.6, ringTilt:1.0 },
-  /* surges right + up — about/experience */
-  { t:0.35, x: 4.5, y: 2.0, scale:2.2, speed:0.030, color:0xB8832A, emissive:0x4a2800, morph:0.5, ringTilt:1.2 },
-  /* crosses centre going down — experience mid */
-  { t:0.42, x: 0.0, y:-1.0, scale:1.6, speed:0.028, color:0xD4A843, emissive:0x5a3800, morph:0.8, ringTilt:1.5 },
-  /* far left lower — experience bottom */
-  { t:0.50, x:-4.2, y:-2.0, scale:1.4, speed:0.032, color:0xB8832A, emissive:0x4a2800, morph:0.9, ringTilt:1.8 },
-  /* swings right upper — skills top */
-  { t:0.58, x: 3.8, y: 1.5, scale:1.2, speed:0.038, color:0xD4A843, emissive:0x5a3800, morph:0.6, ringTilt:1.0 },
-  /* centre — skills mid */
-  { t:0.65, x:-1.0, y: 0.2, scale:2.0, speed:0.025, color:0x006E63, emissive:0x002211, morph:0.4, ringTilt:0.6 },
-  /* far left + low — skills bottom */
-  { t:0.72, x:-4.8, y:-2.5, scale:1.5, speed:0.020, color:0x00A896, emissive:0x003322, morph:0.5, ringTilt:0.4 },
-  /* swings right — education */
-  { t:0.80, x: 3.5, y:-1.0, scale:1.7, speed:0.018, color:0x006E63, emissive:0x003020, morph:0.3, ringTilt:0.7 },
-  /* left upper — education bottom */
-  { t:0.88, x:-3.0, y: 1.5, scale:1.4, speed:0.015, color:0x8ECFC9, emissive:0x1a5550, morph:0.4, ringTilt:0.5 },
-  /* centre — contact */
-  { t:1.00, x: 0.0, y: 0.0, scale:2.0, speed:0.012, color:0x8ECFC9, emissive:0x1a5550, morph:0.3, ringTilt:0.2 },
+/* ── PATH: left/right/up zigzag across whole page ── */
+const PATH=[
+  {t:0.00,x:3.2, y:1.8, scale:1.0},
+  {t:0.08,x:-3.5,y:2.5, scale:0.8},
+  {t:0.15,x:4.0, y:3.0, scale:0.7},
+  {t:0.22,x:0.0, y:0.5, scale:1.1},
+  {t:0.30,x:-4.0,y:-0.5,scale:0.85},
+  {t:0.38,x:3.5, y:1.5, scale:1.3},
+  {t:0.45,x:-1.0,y:-1.0,scale:1.0},
+  {t:0.52,x:-4.5,y:-2.0,scale:0.9},
+  {t:0.60,x:4.2, y:1.0, scale:0.75},
+  {t:0.67,x:0.5, y:0.0, scale:1.2},
+  {t:0.74,x:-3.5,y:-1.5,scale:1.0},
+  {t:0.82,x:3.0, y:-1.0,scale:0.85},
+  {t:0.90,x:-2.0,y:1.0, scale:1.1},
+  {t:1.00,x:1.5, y:0.5, scale:1.0},
 ];
 
-/* Interpolate between waypoints */
-function getPathState(pct){
+/* ── PATH COLOURS per waypoint ── */
+const pathColors=[
+  new THREE.Color(0x006E63),new THREE.Color(0x00A896),new THREE.Color(0x8ECFC9),
+  new THREE.Color(0x006E63),new THREE.Color(0xB8832A),new THREE.Color(0xD4A843),
+  new THREE.Color(0x006E63),new THREE.Color(0x00A896),new THREE.Color(0xB8832A),
+  new THREE.Color(0x006E63),new THREE.Color(0x8ECFC9),new THREE.Color(0xD4A843),
+  new THREE.Color(0x006E63),new THREE.Color(0x00A896),
+];
+
+function getPath(pct){
   let i=0;
-  while(i<PATH.length-2 && PATH[i+1].t<=pct) i++;
-  const a=PATH[i], b=PATH[i+1];
+  while(i<PATH.length-2&&PATH[i+1].t<=pct)i++;
+  const a=PATH[i],b=PATH[i+1];
   const span=b.t-a.t;
   const local=span<=0?0:Math.max(0,Math.min(1,(pct-a.t)/span));
-  // ease
   const e=local<0.5?2*local*local:(1-Math.pow(-2*local+2,2)/2);
   function l(av,bv){return av+(bv-av)*e;}
-  function lc(ac,bc){
-    const ca=new THREE.Color(ac), cb=new THREE.Color(bc);
-    return new THREE.Color(l(ca.r,cb.r),l(ca.g,cb.g),l(ca.b,cb.b));
-  }
-  return {
-    x:      l(a.x,b.x),
-    y:      l(a.y,b.y),
-    scale:  l(a.scale,b.scale),
-    speed:  l(a.speed,b.speed),
-    morph:  l(a.morph,b.morph),
-    ringTilt:l(a.ringTilt,b.ringTilt),
-    color:  lc(a.color,b.color),
-    emissive:lc(a.emissive,b.emissive),
+  const ca=pathColors[i]||pathColors[0];
+  const cb=pathColors[i+1]||pathColors[0];
+  return{
+    x:l(a.x,b.x),y:l(a.y,b.y),
+    scale:l(a.scale,b.scale),
+    color:new THREE.Color(l(ca.r,cb.r),l(ca.g,cb.g),l(ca.b,cb.b)),
+    idx:i,
   };
 }
 
-/* MORPH: deform icosahedron vertices using simplex-like noise */
-function pseudoNoise(x,y,z,t){
-  return Math.sin(x*2.3+t)*Math.cos(y*1.7+t*0.8)*Math.sin(z*2.1+t*1.1);
+/* ── MORPH: noise-based vertex displacement ── */
+function noise3(x,y,z,t){
+  return Math.sin(x*1.8+t)*Math.cos(y*2.1+t*0.7)*Math.sin(z*1.6+t*1.3)
+        +Math.cos(x*0.9+t*1.2)*Math.sin(y*1.4+t*0.5)*Math.cos(z*2.3+t*0.9);
 }
-function morphGeo(geo, amount, t){
-  const pos = geo.attributes.position;
+
+function morphBlob(geo,amount,t){
+  const pos=geo.attributes.position;
   for(let i=0;i<pos.count;i++){
-    const ox=origPos[i*3], oy=origPos[i*3+1], oz=origPos[i*3+2];
-    const len=Math.sqrt(ox*ox+oy*oy+oz*oz);
-    const nx=ox/len, ny=oy/len, nz=oz/len;
-    const noise=pseudoNoise(nx,ny,nz,t)*amount;
-    pos.setXYZ(i, ox+nx*noise, oy+ny*noise, oz+nz*noise);
+    const ox=origPos[i*3],oy=origPos[i*3+1],oz=origPos[i*3+2];
+    const len=Math.sqrt(ox*ox+oy*oy+oz*oz)||1;
+    const nx=ox/len,ny=oy/len,nz=oz/len;
+    const d=noise3(nx,ny,nz,t)*amount;
+    pos.setXYZ(i,ox+nx*d,oy+ny*d,oz+nz*d);
   }
   pos.needsUpdate=true;
   geo.computeVertexNormals();
 }
 
-/* MOUSE subtle nudge */
-let mX=0, mY=0;
-document.addEventListener('mousemove',e=>{
-  mX=(e.clientX/innerWidth-0.5)*1.2;
-  mY=-(e.clientY/innerHeight-0.5)*0.8;
-});
+/* CSS glow blob */
+const glow=document.getElementById('blob-glow');
+
+/* Smooth state */
+let scrollPct=0,tPct=0;
+window.addEventListener('scroll',()=>{tPct=Math.max(0,Math.min(1,scrollY/(document.body.scrollHeight-innerHeight)));});
+
+let Sx=3.2,Sy=1.8,Sscale=1.0,Sclock=0;
+const Scol=new THREE.Color(0x006E63);
 
 /* TRAIL */
-let lastTr=0, lastSX=-9999, lastSY=-9999;
+let lastTr=0,lsx=0,lsy=0;
 function spawnTrail(sx,sy){
-  const now=Date.now();
-  if(now-lastTr<80) return;
-  const dx=sx-lastSX, dy=sy-lastSY;
-  if(Math.abs(dx)+Math.abs(dy)<4) return;
-  lastTr=now; lastSX=sx; lastSY=sy;
+  const now=Date.now();if(now-lastTr<100)return;
+  const dx=sx-lsx,dy=sy-lsy;
+  if(Math.abs(dx)+Math.abs(dy)<5)return;
+  lastTr=now;lsx=sx;lsy=sy;
   const el=document.createElement('div');
   el.className='tp';
-  const sz=6+Math.random()*10;
-  el.style.cssText=`width:${sz}px;height:${sz}px;left:${sx-sz/2}px;top:${sy-sz/2}px;background:rgba(0,110,99,${0.2+Math.random()*0.25});`;
+  const sz=8+Math.random()*14;
+  el.style.cssText=`width:${sz}px;height:${sz}px;left:${sx-sz/2}px;top:${sy-sz/2}px;background:rgba(0,110,99,${0.18+Math.random()*0.2});border-radius:50%;`;
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),1000);
 }
 
-/* SMOOTH scroll state */
-let scrollPct=0, targetPct=0;
-window.addEventListener('scroll',()=>{
-  targetPct = Math.max(0,Math.min(1, scrollY/(document.body.scrollHeight-innerHeight)));
-});
+/* Mouse */
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{mx=(e.clientX/innerWidth-.5)*2.5;my=-(e.clientY/innerHeight-.5)*1.8;});
 
-/* Smooth interpolated state */
-let S = { x:3.5, y:2.5, scale:1.9, speed:0.008, morph:0.3, ringTilt:0, color:new THREE.Color(0x006E63), emissive:new THREE.Color(0x002211) };
+let clk=0;
+function anim(){
+  requestAnimationFrame(anim);
+  clk+=0.012;
+  scrollPct+=(tPct-scrollPct)*0.04;
 
-let clock=0;
-function animate(){
-  requestAnimationFrame(animate);
-  clock+=0.01;
+  const ps=getPath(scrollPct);
+  const lp=0.03;
+  Sx+=(ps.x+mx*0.2-Sx)*lp;
+  Sy+=(ps.y+my*0.2-Sy)*lp;
+  Sscale+=(ps.scale-Sscale)*lp;
+  Scol.r+=(ps.color.r-Scol.r)*lp;
+  Scol.g+=(ps.color.g-Scol.g)*lp;
+  Scol.b+=(ps.color.b-Scol.b)*lp;
 
-  /* Smooth scroll */
-  scrollPct += (targetPct-scrollPct)*0.04;
+  /* Apply position */
+  blob.position.set(Sx,Sy,0);
 
-  const ps = getPathState(scrollPct);
-  const lp = 0.035;
-  function lrp(a,b,t){return a+(b-a)*t;}
+  /* Scale with pulse */
+  const pulse=1+Math.sin(clk*2.5)*0.04;
+  const sc=Sscale*pulse;
+  blob.scale.setScalar(sc);
 
-  /* Smooth S toward path state */
-  S.x      = lrp(S.x,     ps.x+mX,    lp);
-  S.y      = lrp(S.y,     ps.y+mY,    lp);
-  S.scale  = lrp(S.scale, ps.scale,   lp);
-  S.speed  = lrp(S.speed, ps.speed,   0.05);
-  S.morph  = lrp(S.morph, ps.morph,   0.04);
-  S.ringTilt=lrp(S.ringTilt,ps.ringTilt,lp);
-  S.color.r= lrp(S.color.r, ps.color.r, lp);
-  S.color.g= lrp(S.color.g, ps.color.g, lp);
-  S.color.b= lrp(S.color.b, ps.color.b, lp);
-  S.emissive.r= lrp(S.emissive.r,ps.emissive.r,lp);
-  S.emissive.g= lrp(S.emissive.g,ps.emissive.g,lp);
-  S.emissive.b= lrp(S.emissive.b,ps.emissive.b,lp);
-
-  /* Pulse on top */
-  const pulse = Math.sin(clock*2.2)*0.06;
-  const sc    = S.scale*(1+pulse);
-
-  /* Apply position to ALL objects */
-  const pos3 = new THREE.Vector3(S.x, S.y, 0);
-  gem.position.copy(pos3);
-  wire.position.copy(pos3);
-  core.position.copy(pos3);
-  haloRing.position.copy(pos3);
-  orbGroup.position.copy(pos3);
-  sparks.position.copy(pos3);
-  pl.position.set(S.x, S.y, 6);
-
-  /* Scale */
-  gem.scale.setScalar(sc);
-  wire.scale.setScalar(sc);
-  core.scale.setScalar(sc*(0.25+Math.abs(Math.sin(clock*1.5))*0.07));
-
-  /* Colors */
-  mat.color.copy(S.color);
-  mat.emissive.copy(S.emissive);
-  pl.color.copy(S.color);
-  pl.intensity = 2.5+Math.sin(clock*2.8)*0.7;
-
-  /* MORPH the geometry */
-  morphGeo(gem.geometry, S.morph, clock*0.6);
-  morphGeo(wire.geometry, S.morph*0.5, clock*0.6+0.5);
+  /* Color update */
+  bMat.color.copy(Scol);
+  bMat.specular.setRGB(1,1,1);
 
   /* Rotation */
-  gem.rotation.x  += S.speed*0.6;
-  gem.rotation.y  += S.speed;
-  gem.rotation.z  += S.speed*0.35;
-  wire.rotation.set(gem.rotation.x, gem.rotation.y+0.006, gem.rotation.z);
-  core.rotation.y -= S.speed*0.4;
-  sparks.rotation.y += S.speed*0.15;
-  sparks.rotation.x += S.speed*0.08;
+  blob.rotation.x+=0.005;
+  blob.rotation.y+=0.008;
+  blob.rotation.z+=0.003;
 
-  /* Halo ring */
-  haloRing.rotation.x = S.ringTilt+Math.sin(clock*0.4)*0.2;
-  haloRing.rotation.y = clock*S.speed*0.6;
-  haloRing.scale.setScalar(sc);
-  haloRing.material.color.set(Math.floor(scrollPct*10)%2===0?0xB8832A:0x00A896);
+  /* Heavy morph — this is what makes it look liquid */
+  const morphAmt=0.55+Math.sin(clk*0.8)*0.15;
+  morphBlob(bGeo,morphAmt,clk*0.5);
 
-  /* Orbiting dots */
-  orbs.forEach((o,i)=>{
-    o.angle += o.speed+S.speed*0.4;
-    o.mesh.position.set(
-      Math.cos(o.angle)*o.r*sc*0.5,
-      Math.sin(o.angle*o.ys+i)*0.9*sc*0.4,
-      Math.sin(o.angle)*o.r*sc*0.5
-    );
-    o.mesh.scale.setScalar(sc*0.5);
+  /* Orbit lights around blob */
+  lights.forEach((l,i)=>{
+    l.angle+=l.sp;
+    const lx=Sx+Math.cos(l.angle)*l.r;
+    const ly=Sy+Math.sin(l.angle*(i%2===0?0.6:0.8))*l.ys;
+    const lz=Math.sin(l.angle*0.7)*4;
+    l.light.position.set(lx,ly,lz);
+    /* Pulse intensity */
+    l.light.intensity=l.intensity*(0.7+Math.sin(clk*1.5+i)*0.3);
   });
 
-  /* Camera subtle drift */
-  cam.position.x += (mX*0.3-cam.position.x)*0.02;
-  cam.position.y += (mY*0.2-cam.position.y)*0.02;
+  /* Core inner pulse */
+  coreMat.opacity=0.1+Math.sin(clk*3)*0.08;
 
-  /* Convert 3D position to screen coords for trail */
-  const v = pos3.clone().project(cam);
-  const sx = (v.x*0.5+0.5)*innerWidth;
-  const sy = (-v.y*0.5+0.5)*innerHeight;
-  spawnTrail(sx, sy);
+  /* Camera gentle drift */
+  C.position.x+=(mx*0.4-C.position.x)*0.025;
+  C.position.y+=(my*0.25-C.position.y)*0.025;
 
-  R.render(scene, cam);
+  /* CSS glow follows blob */
+  const v=new THREE.Vector3(Sx,Sy,0).project(C);
+  const gsx=(v.x*0.5+0.5)*innerWidth;
+  const gsy=(-v.y*0.5+0.5)*innerHeight;
+  const glowSize=220+Sscale*80;
+  glow.style.cssText=`
+    left:${gsx-glowSize/2}px;
+    top:${gsy-glowSize/2}px;
+    width:${glowSize}px;
+    height:${glowSize}px;
+    background:radial-gradient(circle,rgba(${Math.round(Scol.r*255)},${Math.round(Scol.g*255)},${Math.round(Scol.b*255)},0.35) 0%,transparent 70%);
+  `;
+
+  spawnTrail(gsx,gsy);
+  R.render(S,C);
 }
-animate();
+anim();
 
-window.addEventListener('resize',()=>{
-  R.setSize(innerWidth,innerHeight);
-  cam.aspect=innerWidth/innerHeight;
-  cam.updateProjectionMatrix();
-});
+window.addEventListener('resize',()=>{C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix();R.setSize(innerWidth,innerHeight);});
 
 /* ── CURSOR ── */
 const curEl=document.getElementById('cur'),crEl=document.getElementById('cr');
@@ -769,20 +854,11 @@ function xt(el){
 }
 
 /* COUNTERS */
-const co=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{if(e.isIntersecting){
-    const t=+e.target.dataset.v,s=e.target.dataset.s||'';
-    let st=null;
-    (function step(ts){if(!st)st=ts;const p=Math.min((ts-st)/1800,1);const ease=1-Math.pow(1-p,3);e.target.textContent=Math.round(ease*t)+s;if(p<1)requestAnimationFrame(step);})(performance.now());
-    co.unobserve(e.target);
-  }});
-},{threshold:0.5});
+const co=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){const t=+e.target.dataset.v,s=e.target.dataset.s||'';let st=null;(function step(ts){if(!st)st=ts;const p=Math.min((ts-st)/1800,1);const ease=1-Math.pow(1-p,3);e.target.textContent=Math.round(ease*t)+s;if(p<1)requestAnimationFrame(step);})(performance.now());co.unobserve(e.target);}});},{threshold:0.5});
 document.querySelectorAll('.od').forEach(el=>co.observe(el));
 
 /* SKILL METERS */
-const mo=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{if(e.isIntersecting){e.target.querySelectorAll('.sk-mf').forEach((f,i)=>setTimeout(()=>f.style.width=f.dataset.w+'%',i*150));mo.unobserve(e.target);}});
-},{threshold:0.3});
+const mo=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.querySelectorAll('.sk-mf').forEach((f,i)=>setTimeout(()=>f.style.width=f.dataset.w+'%',i*150));mo.unobserve(e.target);}});},{threshold:0.3});
 document.querySelectorAll('.sk-c').forEach(c=>mo.observe(c));
 
 /* REVEAL */
@@ -792,5 +868,6 @@ document.querySelectorAll('.rev').forEach((el,i)=>{el.dataset.d=(i%4)*80;io.obse
 /* SMOOTH NAV */
 document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth'});});});
 </script>
+
 </body>
 </html>
